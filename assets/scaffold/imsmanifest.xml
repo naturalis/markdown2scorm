@@ -6,7 +6,7 @@
         <lom xmlns="http://www.imsglobal.org/xsd/imsmd_rootv1p2p1" xsi:schemaLocation="http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 imsmd_rootv1p2p1.xsd">
             <general>
                 <title>
-                    <langstring xml:lang="x-none"><![CDATA[Algorithm Design]]></langstring>
+                    <langstring xml:lang="x-none"><![CDATA[{{{title}}}]]></langstring>
                 </title>
                 <description>
                     <langstring xml:lang="x-none"><![CDATA[]]></langstring>
@@ -16,16 +16,16 @@
     </metadata>
     <organizations default="adapt_scorm">
         <organization identifier="adapt_scorm">
-            <title><![CDATA[Algorithm Design]]></title>
+            <title><![CDATA[{{{title}}}]]></title>
             <item identifier="item_1" isvisible="true" identifierref="res1">
-                <title><![CDATA[Algorithm Design]]></title>
+                <title><![CDATA[{{{title}}}]]></title>
                  <!-- <adlcp:masteryscore>70</adlcp:masteryscore> -->
             </item>
         </organization>
     </organizations>
     <resources>
-        <resource identifier="res1" type="webcontent" href="index_lms.html" adlcp:scormtype="sco">
-            <file href="index_lms.html"/>
+        <resource identifier="res1" type="webcontent" href="template/index.html" adlcp:scormtype="sco">
+            <file href="template/index.html"/>
         </resource>
     </resources>
 </manifest>
