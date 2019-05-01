@@ -3,9 +3,13 @@ use strict;
 use warnings;
 use version;
 use Pod::Usage;
+use File::Spec;
+use File::Copy;
 use File::Which;
+use File::Temp 'tempdir';
 use FindBin '$Bin';
 use Getopt::Long;
+use Archive::Zip;
 
 # global variables
 my $asset_dir = "$Bin/../assets";
@@ -36,6 +40,9 @@ GetOptions(
 # make sure our pandoc is ok
 $pandoc = test_pandoc($pandoc);
 
+# create the output directory
+my $outdir = make_outdir();
+
 # convert the markdowns to htmls
 my @htmls;
 for my $m ( @markdowns ) {
@@ -43,8 +50,35 @@ for my $m ( @markdowns ) {
 		'markdown' => $m,
 		'slides'   => $slides,
 		'pandoc'   => $pandoc,
+		'outdir'   => $outdir,
 	);
 }
+
+# copy the assets
+copy_assets(
+	'slides' => $slides,
+	'outdir' => $outdir,
+	'assets' => $assets,
+);
+
+# update the configure.js file
+update_js(
+	'title'  => $title,
+	'htmls'  => \@htmls,
+	'outdir' => $outdir,
+);
+
+# update the xml manifest
+update_xml(
+	'title'  => $title,
+	'outdir' => $outdir,
+);
+
+# bundle the zip
+bundle(
+	'outdir'  => $outdir,
+	'outfile' => $outfile,
+);
 
 sub test_pandoc {
 	my $pandoc = shift;
@@ -91,15 +125,24 @@ sub test_pandoc {
 	}
 }
 
+sub make_outdir {
+	my $tmpdir = tempdir( 'CLEANUP' => 1 );
+	my ( @parts ) = File::Spec->splitpath( $outfile );
+	my $o = $parts[-1];
+	my $outdir = "$tmpdir/$o";
+	return $outdir;
+}
+
 sub make_html {
 	my %args = @_;
 	
 	# shrink pandoc arg name
 	my $p = $args{'pandoc'};
 	
-	# create outfile name
+	# create outfile name in outdir
 	my $m = $args{'markdown'};
-	my $h = $m;
+	my @dirs = File::Spec->splitpath($m);
+	my $h = File::Spec->catfile( $args{'outdir'}, 'libscorm', 'template', $dirs[-1] );
 	$h =~ s/\.md$/.html/;
 	
 	# check slide format
@@ -134,15 +177,97 @@ sub make_html {
 	return $h;
 }
 
-sub update_js {
+sub copy_assets {
+	my %args = @_;
+	my $d = $args{'outdir'};
+	
+	# copy over the libscorm assets
+	copy( "$asset_dir/libscorm" => "$d/libscorm" );
+	
+	# copy over the scaffolding
+	{
+		opendir my $dh, "$asset_dir/scaffold";
+		while( my $entry = readdir $dh ) {
+			if ( $entry =~ /\.xml$/ or $entry =~ /\.xsd$/ ) {
+				copy( "$asset_dir/scaffold/$entry" => "$d/$entry" );
+			}
+		}
+	}
+	
+	# copy over the user supplied assets
+	{
+		my $a = $args{'assets'};
+		opendir my $dh, $args{'assets'};
+		while( my $entry = readdir $dh ) {
+			next if $entry =~ /^\.\.?$/;
+			copy( "$a/$entry" => "$d/libscorm/template/$entry" );
+		}
+	}
+	
+	# copy over the slide assets, if any
+	my $s = $args{'slides'};
+	if ( $s ) {
+		copy( $slides{$s} => "$d/libscorm/template/$s" );
+	}
+}
 
+sub update_js {
+	my %args = @_;
+	my @htmls = @{ $args{'htmls'} };
+	my $title = $args{'title'};
+	my $o = $args{'outdir'};
+	
+	# create local file names of the htmls
+	my @locals;
+	for my $h ( @htmls ) {
+		my ( @parts ) = File::Spec->splitpath( $h );
+		push @locals, $parts[-1];
+	}
+	
+	# read the original JS from the distro's assets, overwrite the copied one
+	open my $in, '<', "$asset_dir/libscorm/template/configure.js";
+	open my $out, '>', "$o/template/configure.js";
+	while(<$in>) {
+		my $line = $_;
+		
+		# replace the title
+		if ( /var SCO_title/ ) {
+			$line = "var SCO_title = '$title';\n";
+		}
+		
+		# replace the navpages
+		if ( /var NAV_pages/ ) {
+			my $names = join ', ', map { "'$_'" } @locals;
+			$line = "var NAV_pages = [ $names ];\n";
+		}
+		
+		# print output
+		print $out $line;	
+	}
 }
 
 sub update_xml {
-
+	my %args = @_;
+	my $title = $args{'title'};
+	my $o = $args{'outdir'};
+	
+	# read the original infile, overwrite the copied one
+	open my $in, '<', "$asset_dir/scaffold/imsmanifest.xml";
+	open my $out, '>', "$o/imsmanifest.xml";
+	while(<$in>) {
+		my $line = $_;
+		$line =~ s/\{\{\{title\}\}\}/$title/;
+		print $out $line;
+	}
 }
 
 sub bundle {
-
+	my %args = @_;
+	my $of = $args{'outfile'};
+	my $od = $args{'outdir'};
+	
+	my $zip = Archive::Zip->new();
+	$zip->addDirectory( $od );
+	$zip->writeToFileNamed( $outfile . '.zip' )
 }
 
