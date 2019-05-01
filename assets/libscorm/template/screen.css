@@ -1,0 +1,39 @@
+html {
+	overflow: auto; /* to remove IE's useless scroll bar */
+}
+
+body {
+	margin:   0px;
+	padding:  0px;
+	width:    100%;
+	height:   100%;
+}
+
+#nav {
+	position: absolute;
+	z-index:  2;
+	top:      5px;
+	right:    20px;
+}
+
+#nav .enabled, #nav .tick, #debug img {
+	cursor: pointer;
+}
+
+#debug {
+	position: absolute;
+	z-index:  2;
+	top:      55px;;
+	right:    20px;
+}
+
+#content {
+	z-index:  1;
+	position: absolute;
+	top:      0px;
+	left:     0px;
+	margin:   0px;
+	padding:  0px;
+	width:    100%;
+	height:   100%;
+}
