@@ -1,0 +1,148 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use version;
+use Pod::Usage;
+use File::Which;
+use FindBin '$Bin';
+use Getopt::Long;
+
+# global variables
+my $asset_dir = "$Bin/../assets";
+my %slides = (
+	's5'       => "$asset_dir/slides/s5",
+	'slidy'    => "$asset_dir/slides/slidy",
+	'slideous' => "$asset_dir/slides/slideous",
+	'dzslides' => "$asset_dir/slides/dzslides",
+	'revealjs' => "$asset_dir/slides/revealjs",
+);
+
+# process command line arguments
+my @markdowns;
+my $title;
+my $assets;
+my $outfile;
+my $slides;
+my $pandoc;
+GetOptions(
+	'markdowns=s' => \@markdowns,
+	'title=s'     => \$title,
+	'assets=s'    => \$assets,
+	'outfile=s'   => \$outfile,
+	'slides=s'    => \$slides,
+	'pandoc=s'    => \$pandoc,
+);
+
+# make sure our pandoc is ok
+$pandoc = test_pandoc($pandoc);
+
+# convert the markdowns to htmls
+my @htmls;
+for my $m ( @markdowns ) {
+	push @htmls, make_html(
+		'markdown' => $m,
+		'slides'   => $slides,
+		'pandoc'   => $pandoc,
+	);
+}
+
+sub test_pandoc {
+	my $pandoc = shift;
+	my $check = sub {
+		my $p = shift;
+		my @p = `$p --version`;
+		if ( $p[0] =~ /(\d\.\d\.\d)/ ) {
+			my $version = $1;
+			if ( qv("v$version") >= qv("v2.7.2") ) {
+				return $p;
+			}
+			else {
+				pod2usage( { 
+					'-message' => "Pandoc version $version lower than v2.7.2",
+					'-exitval' => 2,  
+					'-verbose' => 1
+				})			
+			}
+		}
+	};
+	if ( not $pandoc ) {
+		if ( $pandoc = which 'pandoc' ) {
+			return $check->($pandoc);
+		}
+		else {
+			pod2usage( { 
+				'-message' => 'No pandoc provided, none found on system',
+                '-exitval' => 1,  
+                '-verbose' => 1
+        	})		
+		}	
+	}
+	else {
+		if ( -x $pandoc ) {
+			return $check->($pandoc);
+		}
+		else {
+			pod2usage( { 
+				'-message' => "Provided pandoc ($pandoc) is not an executable",
+                '-exitval' => 1,  
+                '-verbose' => 1
+        	})		
+		}
+	}
+}
+
+sub make_html {
+	my %args = @_;
+	
+	# shrink pandoc arg name
+	my $p = $args{'pandoc'};
+	
+	# create outfile name
+	my $m = $args{'markdown'};
+	my $h = $m;
+	$h =~ s/\.md$/.html/;
+	
+	# check slide format
+	my $s = $args{'slides'};
+	if ( $s ) {
+		if ( not -d $slides{$s} ) {
+			pod2usage( { 
+				'-message' => "Unknown slide format: $s",
+				'-exitval' => 3,  
+				'-verbose' => 1
+			})
+		}
+		else {
+			system( 
+				$p   => '-s',
+				'-t' => $s, 
+				'-f' => 'markdown',
+				'-o' => $h,
+				$m
+			);
+		}
+	}
+	else {
+		system( 
+			$p   => '-s',
+			'-t' => 'html', 
+			'-f' => 'markdown',
+			'-o' => $h,
+			$m
+		);	
+	}
+	return $h;
+}
+
+sub update_js {
+
+}
+
+sub update_xml {
+
+}
+
+sub bundle {
+
+}
+
